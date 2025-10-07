@@ -1,0 +1,12 @@
+{
+  // Enable all rules in the `correctness` and `suspicious` categories
+  "categories": {
+    "correctness": "error",
+    "suspicious": "warn",
+    "pedantic": "warn",
+    "perf": "warn",
+  },
+  "rules": {
+    "no-array-callback-reference": "off"
+  }
+}
