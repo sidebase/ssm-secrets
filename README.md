@@ -27,6 +27,7 @@
 <!-- Badges End -->
 
 **Simple AWS SSM Secrets Manager CLI**
+
 Securely manage your AWS SSM Parameters — authenticate once via your OS keyring and easily list, get, write, or delete secrets.
 
 ## ✨ Features
@@ -34,6 +35,7 @@ Securely manage your AWS SSM Parameters — authenticate once via your OS keyrin
 * 🔐 **Secure local credential storage** using native OS keyrings
   (via [`keyring-node`](https://github.com/Brooooooklyn/keyring-node), powered by [`keyring-rs`](https://github.com/open-source-cooperative/keyring-rs))
 * 🧩 **List / get / put / delete** SSM parameters
+* 🏃 **Run** commands with environment variables from SSM parameters
 * 🧠 **Output formatting** as `.env` or JSON
 * 🪄 Works with AWS SSM Parameter Store, recursive listing included
 * 🧰 Both **CLI** and **programmatic API** available
@@ -167,6 +169,36 @@ Outputs:
 ✅ Parameter deleted
 ```
 
+### 💿 Execute a command with SSM environment
+
+Fetches all parameters from a given SSM path, transforms them into environment
+variables, and executes the provided command with that environment.
+
+Variable names are uppercased and stripped of the path prefix.
+Example: `/my/app/parameter` becomes `PARAMETER` environment variable.
+
+```bash
+ssm-secrets exec my/app -- node server.js
+````
+
+If you need to pass `--argument`s to your command, separate them using a double dash:
+
+```bash
+ssm-secrets exec my/app -- node server.js --inspect
+```
+
+Options:
+* `--no-overwrite`
+  Do not overwrite existing environment variables.
+
+* `--ignore <names...>`
+  Ignore specific parameter names (case-sensitive, without path prefix).
+  Example:
+
+  ```bash
+  ssm-secrets exec my/app --ignore FOO bar -- node server.js
+  ```
+
 ## ⚙️ Programmatic API
 
 You can also use the API directly in Node.js:
@@ -221,6 +253,7 @@ ssm-secrets auth
 ssm-secrets put my/app DB_USER myuser
 ssm-secrets put my/app DB_PASS mypassword
 ssm-secrets list my/app --format env
+ssm-secrets exec my/app -- node server.js
 ```
 
 Output:
