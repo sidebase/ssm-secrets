@@ -1,7 +1,7 @@
 {
   "name": "@sidebase/ssm-secrets",
   "type": "module",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "description": "AWS SSM command-line and programmatic utility",
   "repository": "github:sidebase/ssm-secrets",
   "bin": {
