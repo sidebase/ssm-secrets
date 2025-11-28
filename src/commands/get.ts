@@ -15,10 +15,10 @@ export function getCommand(program: Command) {
     .action(async (path: string, name: string) => {
       const value = await getParameter(path, name)
       if (value) {
-        console.log(value)
+        console.log(JSON.stringify(value, null, 2))
       }
       else {
-        console.error('Error: Parameter not found')
+        program.error('Parameter not found')
       }
     })
 }

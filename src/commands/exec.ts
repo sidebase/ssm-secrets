@@ -23,7 +23,7 @@ export function execCommand(program: Command) {
       '--ignore <ignores...>',
       'Do not include the parameters with the given names to environment. '
       + 'The parameter names are case-sensitive and should match the name inside SSM excluding path prefix. '
-      + 'Example: if you want to ignore my/app/parameter1 and my/app/parameter2, use --ignore parameter1 parameter2'
+      + 'Example: if you want to ignore my/app/parameter1 and my/app/parameter2, use --ignore parameter1 parameter2',
     )
     .action(async (path: string, command: string, args: string[], options: { overwrite: boolean, ignore: string[] | undefined }) => {
       // Normalize options
@@ -40,13 +40,13 @@ export function execCommand(program: Command) {
       // Merge into environment
       const env = options.overwrite
         ? {
-          ...process.env,
-          ...envs,
-        }
+            ...process.env,
+            ...envs,
+          }
         : {
-          ...envs,
-          ...process.env,
-        }
+            ...envs,
+            ...process.env,
+          }
 
       // Replace current process
       const child = spawn(command, args, {
