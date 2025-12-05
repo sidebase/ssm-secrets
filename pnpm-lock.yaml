@@ -17,6 +17,9 @@ importers:
       commander:
         specifier: ^14.0.2
         version: 14.0.2
+      dotenv:
+        specifier: ^17.2.3
+        version: 17.2.3
       inquirer:
         specifier: ^12.11.1
         version: 12.11.1(@types/node@24.10.1)
@@ -807,6 +810,10 @@ packages:
 
   deep-is@0.1.4:
     resolution: {integrity: sha512-oIPzksmTg4/MriiaYGO+okXDT7ztn/w3Eptv/+gSIdMdKsJo0u4CfYNFJPy+4SKMuCqGw2wxnA+URMg3t8a/bQ==}
+
+  dotenv@17.2.3:
+    resolution: {integrity: sha512-JVUnt+DUIzu87TABbhPmNfVdBDt18BLOWjMUFJMSi/Qqg7NTYtabbvSNJGOJ7afbRuv9D/lngizHtP7QyLQ+9w==}
+    engines: {node: '>=12'}
 
   emoji-regex@8.0.0:
     resolution: {integrity: sha512-MSjYzcWNOA0ewAHpz0MxpYFvwg6yjy1NG3xteoqz644VCo/RPgnr1/GGt+ic3iJTzQ8Eu3TdM14SawnVUmGE6A==}
@@ -2203,6 +2210,8 @@ snapshots:
       ms: 2.1.3
 
   deep-is@0.1.4: {}
+
+  dotenv@17.2.3: {}
 
   emoji-regex@8.0.0: {}
 
