@@ -42,6 +42,7 @@
     "@aws-sdk/client-ssm": "^3.939.0",
     "@napi-rs/keyring": "^1.2.0",
     "commander": "^14.0.2",
+    "dotenv": "^17.2.3",
     "inquirer": "^12.11.1",
     "zod": "^4.1.13"
   },
