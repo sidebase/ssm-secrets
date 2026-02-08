@@ -103,8 +103,14 @@ ssm-secrets list my/service --format env
 
 **Output formats:**
 
-* `json` (default) → structured object (`{"PARAM": "value"}`)
+* `json` (default) → structured object (`{"param": "value"}`)
 * `env` → shell-style lines suitable for `source` (`PARAM='value'`)
+
+> [!IMPORTANT]
+> When you need to specify a parameter name (see commands below), in most cases you should use lowercase.
+>
+> This is because parameter keys (names) are stored in lowercase by default, except if you use the `--format env` option.
+> You can confirm this by running the `list` command
 
 ### 🔍 Get a single parameter
 
@@ -117,7 +123,7 @@ ssm-secrets get <path> <name>
 Example:
 
 ```bash
-ssm-secrets get my/service DB_PASSWORD
+ssm-secrets get my/service db_password
 ```
 
 Outputs full JSON metadata from SSM.
@@ -140,7 +146,7 @@ ssm-secrets set ...
 Example:
 
 ```bash
-ssm-secrets put my/service DB_PASSWORD supersecret
+ssm-secrets put my/service db_password supersecret
 ```
 
 Displays when successful:
@@ -160,7 +166,7 @@ ssm-secrets delete <path> <name>
 Example:
 
 ```bash
-ssm-secrets delete my/service DB_PASSWORD
+ssm-secrets delete my/service db_password
 ```
 
 Outputs:
@@ -188,6 +194,7 @@ ssm-secrets exec my/app -- node server.js --inspect
 ```
 
 Options:
+
 * `--no-overwrite`
   Do not overwrite existing environment variables.
 
@@ -266,4 +273,3 @@ DB_PASS='mypassword'
 ## 🧾 License
 
 MIT
-
