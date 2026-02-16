@@ -23,6 +23,10 @@ try {
 }
 catch (error) {
   if (error instanceof Error) {
+    // https://github.com/SBoudrias/Inquirer.js/blob/main/packages/prompts/README.md#handling-ctrlc-gracefully
+    if (error.name === 'ExitPromptError') {
+      process.exit(0)
+    }
     console.error(`Error: ${error.name} ${error.message}`)
   }
   else {
