@@ -107,10 +107,10 @@ ssm-secrets list my/service --format env
 * `env` → shell-style lines suitable for `source` (`PARAM='value'`)
 
 > [!IMPORTANT]
-> When you need to specify a parameter name (see commands below), in most cases you should use lowercase.
+> The parameter names you provide in commands below are case-sensitive and depend on what is stored
+> in your [Parameter Store](https://docs.aws.amazon.com/systems-manager/latest/userguide/systems-manager-parameter-store.html).
 >
-> This is because parameter keys (names) are stored in lowercase by default, except if you use the `--format env` option.
-> You can confirm this by running the `list` command
+> You can get the exact parameter names by using the `list` command.
 
 ### 🔍 Get a single parameter
 
