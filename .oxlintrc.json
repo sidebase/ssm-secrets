@@ -4,9 +4,13 @@
     "correctness": "error",
     "suspicious": "warn",
     "pedantic": "warn",
-    "perf": "warn",
+    "perf": "warn"
   },
   "rules": {
-    "no-array-callback-reference": "off"
+    "max-lines-per-function": "off",
+    "no-array-callback-reference": "off",
+    "no-inline-comments": "off",
+    "no-unsafe-assignment": "off",
+    "strict-boolean-expressions": "off"
   }
 }
