@@ -13,9 +13,9 @@ The variable names are stripped of path prefix and uppercased.
 Example: parameter with path my/app/parameter becomes PARAMETER environment variable.`
 
 interface ExecCommandOptions {
- overwrite: boolean
- ignore: string[] | undefined 
- envFileIfExists: string
+  overwrite: boolean
+  ignore: string[] | undefined
+  envFileIfExists: string
 }
 
 export function execCommand(program: Command) {
@@ -28,7 +28,7 @@ export function execCommand(program: Command) {
     .argument('[args...]', 'Arguments for the command. Use -- before command to ensure that arguments are passed correctly: ssm-secrets exec my/path -- command --argument')
     .option(
       '--no-overwrite',
-      'Do not overwrite existing environment variables'
+      'Do not overwrite existing environment variables',
     )
     .option(
       '--ignore <ignores...>',
@@ -61,7 +61,8 @@ export function execCommand(program: Command) {
         if (options.envFileIfExists) {
           envFileVars = parse(readFileSync(options.envFileIfExists))
         }
-      } catch {}
+      }
+      catch {}
 
       // Merge into environment
       const env = options.overwrite
