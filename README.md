@@ -103,8 +103,14 @@ ssm-secrets list my/service --format env
 
 **Output formats:**
 
-* `json` (default) → structured object (`{"PARAM": "value"}`)
+* `json` (default) → structured object (`{"param": "value"}`)
 * `env` → shell-style lines suitable for `source` (`PARAM='value'`)
+
+> [!IMPORTANT]
+> The parameter names you provide in commands below are case-sensitive and depend on what is stored
+> in your [Parameter Store](https://docs.aws.amazon.com/systems-manager/latest/userguide/systems-manager-parameter-store.html).
+>
+> You can get the exact parameter names by using the `list` command.
 
 ### 🔍 Get a single parameter
 
@@ -117,7 +123,7 @@ ssm-secrets get <path> <name>
 Example:
 
 ```bash
-ssm-secrets get my/service DB_PASSWORD
+ssm-secrets get my/service db_password
 ```
 
 Outputs full JSON metadata from SSM.
@@ -140,7 +146,7 @@ ssm-secrets set ...
 Example:
 
 ```bash
-ssm-secrets put my/service DB_PASSWORD supersecret
+ssm-secrets put my/service db_password supersecret
 ```
 
 Displays when successful:
@@ -160,7 +166,7 @@ ssm-secrets delete <path> <name>
 Example:
 
 ```bash
-ssm-secrets delete my/service DB_PASSWORD
+ssm-secrets delete my/service db_password
 ```
 
 Outputs:
@@ -188,6 +194,7 @@ ssm-secrets exec my/app -- node server.js --inspect
 ```
 
 Options:
+
 * `--no-overwrite`
   Do not overwrite existing environment variables.
 
@@ -266,4 +273,3 @@ DB_PASS='mypassword'
 ## 🧾 License
 
 MIT
-
