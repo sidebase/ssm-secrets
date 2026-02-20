@@ -1,5 +1,6 @@
 import { Command } from 'commander'
-import inquirer from 'inquirer'
+import promptInput from '@inquirer/input'
+import promptPassword from '@inquirer/password'
 import { writeCredentials } from '../keyring.js'
 
 const SUMMARY = 'Authenticate and store AWS credentials securely'
@@ -13,11 +14,15 @@ export function authCommand(program: Command) {
     .summary(SUMMARY)
     .description(DESCRIPTION)
     .action(async () => {
-      const answers = await inquirer.prompt([
-        { default: 'eu-central-1', message: 'AWS Region:', name: 'region', type: 'input' },
-        { message: 'AWS Access Key ID:', name: 'accessKeyId', required: true, type: 'input' },
-        { message: 'AWS Secret Access Key:', name: 'secretAccessKey', type: 'password' },
-      ])
+      const answers = {
+        region: await promptInput({ message: 'AWS Region:', default: 'eu-central-1' }),
+        accessKeyId: await promptInput({ message: 'AWS Access Key ID:', required: true }),
+        secretAccessKey: await promptPassword({
+          message: 'AWS Secret Access Key:',
+          validate: v => v !== '' || 'Key is required',
+          mask: true,
+        }),
+      }
 
       writeCredentials(answers)
       console.log('✅ Credentials securely stored in system keyring')
