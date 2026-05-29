@@ -7,6 +7,7 @@ import { getCommand } from './commands/get.js'
 import { putCommand } from './commands/put.js'
 import { deleteCommand } from './commands/delete.js'
 import { execCommand } from './commands/exec.js'
+import { wipeCredentialsCommand } from './commands/wipe-credentials.js'
 
 const program = new Command()
 program.name('ssm-secrets').description('Simple AWS SSM secrets manager CLI').version(packageJson.version)
@@ -17,6 +18,7 @@ getCommand(program)
 putCommand(program)
 deleteCommand(program)
 execCommand(program)
+wipeCredentialsCommand(program)
 
 try {
   await program.parseAsync(process.argv)
