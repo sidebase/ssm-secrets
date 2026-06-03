@@ -3,7 +3,7 @@ import promptSelect from '@inquirer/select'
 import type { SsoCredentials, StaticCredentials } from './keyring.js'
 import { getStoredCredentials, writeStoredCredentials } from './keyring.js'
 import { openHttpsUrl } from './browser.js'
-import { createTokenFromDeviceCode, getRoleCredentials, listAccounts, listRoles, refreshAccessToken, registerClient, startDeviceAuthorization } from './sso.js'
+import { createTokenFromDeviceCode, getErrorReason, getRoleCredentials, listAccounts, listRoles, refreshAccessToken, registerClient, startDeviceAuthorization } from './sso.js'
 
 const EXPIRY_BUFFER_MS = 60 * 1000
 
@@ -121,7 +121,7 @@ async function getSsoCredentialsWithFreshToken(credentials: SsoCredentials): Pro
     return credentials
   }
 
-  if (isFresh(credentials.clientSecretExpiresAt) && credentials.refreshToken) {
+  if (isFresh(credentials.clientSecretExpiresAt, true) && credentials.refreshToken) {
     try {
       const token = await refreshAccessToken(credentials.region, credentials.clientId, credentials.clientSecret, credentials.refreshToken)
       const updatedCredentials = {
@@ -133,8 +133,10 @@ async function getSsoCredentialsWithFreshToken(credentials: SsoCredentials): Pro
       writeStoredCredentials(updatedCredentials)
       return updatedCredentials
     }
-    catch {
-      console.warn('Unable to automatically refresh the access token, falling back to interactive refresh')
+    catch (e) {
+      const reason = getErrorReason(e)
+      const reasonSuffix = reason ? ` Reason: ${reason}` : ''
+      console.warn(`Unable to automatically refresh the access token, falling back to interactive refresh.${reasonSuffix}`)
     }
   }
 
@@ -211,7 +213,7 @@ async function selectAccount(region: string, accessToken: string): Promise<strin
 
   if (accounts.length === 1) {
     const accountId = accounts[0].accountId
-    console.debug('Selecting the only account available with accountId', accountId)
+    console.warn('Selecting the only account available with accountId', accountId)
     return accountId
   }
 
@@ -236,7 +238,7 @@ async function selectRole(region: string, accessToken: string, accountId: string
 
   if (roles.length === 1) {
     const roleName = roles[0].roleName
-    console.debug('Selecting the only role available with roleName', roleName)
+    console.warn('Selecting the only role available with roleName', roleName)
     return roleName
   }
 
@@ -254,6 +256,11 @@ function normalizeStartUrl(startUrl: string): string {
   return url.href
 }
 
-function isFresh(expiresAt: number | undefined): expiresAt is number {
-  return typeof expiresAt === 'number' && expiresAt - EXPIRY_BUFFER_MS > Date.now()
+function isFresh(expiresAt: number | undefined, isInSeconds = false): expiresAt is number {
+  if (typeof expiresAt !== 'number') {
+    return false
+  }
+
+  const expiresAtMs = isInSeconds ? expiresAt * 1000 : expiresAt
+  return expiresAtMs - EXPIRY_BUFFER_MS > Date.now()
 }

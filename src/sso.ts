@@ -1,5 +1,5 @@
 import { GetRoleCredentialsCommand, ListAccountRolesCommand, ListAccountsCommand, SSOClient } from '@aws-sdk/client-sso'
-import { AuthorizationPendingException, CreateTokenCommand, RegisterClientCommand, SlowDownException, SSOOIDCClient, StartDeviceAuthorizationCommand } from '@aws-sdk/client-sso-oidc'
+import { AuthorizationPendingException, CreateTokenCommand, InvalidGrantException, RegisterClientCommand, SlowDownException, SSOOIDCClient, StartDeviceAuthorizationCommand } from '@aws-sdk/client-sso-oidc'
 
 export interface RegisteredClient {
   clientId: string
@@ -200,6 +200,15 @@ export async function getRoleCredentials(region: string, accessToken: string, ac
     expiresAt: credentials.expiration,
     secretAccessKey: credentials.secretAccessKey,
     sessionToken: credentials.sessionToken,
+  }
+}
+
+export function getErrorReason(e: unknown): string | undefined {
+  if (e instanceof InvalidGrantException) {
+    return e.error_description
+  }
+  else if (e instanceof Error) {
+    return e.message
   }
 }
 
