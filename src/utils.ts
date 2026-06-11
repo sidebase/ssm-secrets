@@ -36,7 +36,7 @@ export function normalizePathAndName(path: string, name: string): string {
  */
 export function formatEnv(parameter: SimplifiedParameter): string | undefined {
   if (!parameter.Name) {
-    return
+    return undefined
   }
 
   const name = escapeEnvName(parameter.Name).toUpperCase()
@@ -45,7 +45,7 @@ export function formatEnv(parameter: SimplifiedParameter): string | undefined {
 }
 
 function escapeEnvName(name: string): string {
-  if (/^[A-Za-z_][A-Za-z0-9_]*$/.test(name)) {
+  if (/^[A-Za-z_][A-Za-z0-9_]*$/u.test(name)) {
     return name
   }
   // quote the name
@@ -55,9 +55,9 @@ function escapeEnvName(name: string): string {
 // Adapted from https://github.com/xxorax/node-shell-escape
 function escapeEnvValue(value: string): string {
   let s = value
-  if (/[^A-Za-z0-9_/:=-]/.test(s)) {
+  if (/[^A-Za-z0-9_/:=-]/u.test(s)) {
     s = `'${s.replaceAll('\'', String.raw`'\''`)}'`
-    s = s.replaceAll(/^(?:'')+/g, '') // unduplicate single-quote at the beginning
+    s = s.replaceAll(/^(?:'')+/gu, '') // unduplicate single-quote at the beginning
       .replaceAll('\\\\\'\'\'', String.raw`\'`) // remove non-escaped single-quote if there are enclosed between 2 escaped
   }
   return s

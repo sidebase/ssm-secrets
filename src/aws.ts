@@ -1,16 +1,14 @@
 import type { Parameter } from '@aws-sdk/client-ssm'
 import { DeleteParameterCommand, GetParameterCommand, PutParameterCommand, SSMClient, paginateGetParametersByPath } from '@aws-sdk/client-ssm'
-import { getCredentials } from './keyring.js'
+import { getAwsCredentials, getCredentialsRegion } from './credentials.js'
 import { normalizePath, normalizePathAndName } from './utils.js'
 
 export function getClient(): SSMClient {
-  const credentials = getCredentials()
+  const region = getCredentialsRegion()
 
   return new SSMClient({
-    credentials: {
-      accessKeyId: credentials.accessKeyId,
-      secretAccessKey: credentials.secretAccessKey,
-    }, region: credentials.region,
+    credentials: getAwsCredentials,
+    region,
   })
 }
 

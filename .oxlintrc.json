@@ -11,6 +11,7 @@
     "no-array-callback-reference": "off",
     "no-inline-comments": "off",
     "no-unsafe-assignment": "off",
-    "strict-boolean-expressions": "off"
+    "strict-boolean-expressions": "off",
+    "prefer-readonly-parameter-types": "off"
   }
 }
