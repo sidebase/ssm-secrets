@@ -210,6 +210,7 @@ export function getErrorReason(e: unknown): string | undefined {
   else if (e instanceof Error) {
     return e.message
   }
+  return undefined
 }
 
 function getOidcClient(region: string): SSOOIDCClient {
