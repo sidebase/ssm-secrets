@@ -66,7 +66,11 @@ Run `ssm-secrets --help` or `ssm-secrets <command> --help` for details.
 
 ### 🔐 Authenticate
 
-Store AWS credentials in your system keyring.
+Store AWS authentication data in your system keyring.
+
+#### Static credentials
+
+Store long-lived AWS credentials:
 
 ```bash
 ssm-secrets auth
@@ -80,11 +84,34 @@ AWS Access Key ID:
 AWS Secret Access Key:
 ```
 
-These are securely saved using your OS’s secret store:
+#### AWS SSO
 
-* Linux: Secret Service / GNOME Keyring / KWallet
-* macOS: Keychain Access
-* Windows: Credential Manager
+Store AWS SSO authentication state:
+
+```bash
+ssm-secrets auth --sso-start-url https://d-zzzzzz.awsapps.com/start
+```
+
+Options:
+
+* `--region <region>`
+  AWS region for SSM and AWS SSO/OIDC endpoints. Defaults to `eu-central-1`.
+
+* `--account-id <id>`
+  Use a specific AWS SSO account instead of selecting interactively.
+
+* `--role-name <name>`
+  Use a specific AWS SSO role instead of selecting interactively.
+
+During SSO authentication, the CLI opens the AWS login URL in your browser and also prints the URL and device code as a fallback. Temporary AWS credentials, SSO tokens, client registration, account ID, role name, region, and start URL are stored in the system keyring. Later commands silently refresh credentials when possible. If silent refresh is no longer possible and browser refresh was allowed during auth, the command opens the browser again and continues after login.
+
+#### Wipe credentials
+
+Delete all stored credentials:
+
+```bash
+ssm-secrets wipe-credentials
+```
 
 ### 📜 List parameters
 
@@ -251,7 +278,11 @@ Credentials are stored securely in the system keyring via [`keyring-node`](https
 | macOS    | macOS Keychain                                                       |
 | Windows  | Credential Manager                                                   |
 
-Nothing sensitive is stored in plaintext.
+Nothing sensitive is stored in plaintext. Static AWS credentials and AWS SSO tokens are stored in the OS keyring.
+
+Current versions store credentials using keyring user with `/v2` suffix. For compatibility with older `ssm-secrets` versions, static auth also writes legacy static credentials to the default keyring target. Current versions prefer `v2` credentials and fall back to legacy static credentials when `v2` credentials are missing.
+
+SSO auth is stored only under the `/v2` suffix because older versions do not support SSO. If legacy static credentials exist, older versions can keep using them. `ssm-secrets wipe-credentials` deletes both `v2` and legacy credentials.
 
 ## 🧠 Example workflow
 
