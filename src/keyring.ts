@@ -1,13 +1,21 @@
 import { Entry } from '@napi-rs/keyring'
 import { z } from 'zod'
 
+const CURRENT_SCHEMA_VERSION = 2
+
 const KEYRING_SERVICE_NAME = 'aws-ssm-secrets'
-const KEYRING_USER_NAME = 'aws-ssm-secrets'
+const LEGACY_KEYRING_USER_NAME = 'aws-ssm-secrets'
+const CURRENT_KEYRING_USER_NAME = `aws-ssm-secrets/v${CURRENT_SCHEMA_VERSION}`
 const ADD_CREDENTIALS_CMD = 'ssm-secrets auth'
 
 const legacyCredentialsSchema = z.object({
   accessKeyId: z.string().nonempty(), region: z.string().nonempty(), secretAccessKey: z.string().nonempty(),
 })
+
+const legacySchemaToV2 = legacyCredentialsSchema.transform(credentials => ({
+  mode: 'static' as const,
+  ...credentials,
+}))
 
 const staticCredentialsSchema = legacyCredentialsSchema.extend({
   mode: z.literal('static'),
@@ -39,26 +47,38 @@ const storedCredentialsSchema = z.discriminatedUnion('mode', [staticCredentialsS
 export type StaticCredentials = z.infer<typeof staticCredentialsSchema>
 export type SsoCredentials = z.infer<typeof ssoCredentialsSchema>
 export type StoredCredentials = z.infer<typeof storedCredentialsSchema>
+type LegacyCredentials = z.infer<typeof legacyCredentialsSchema>
 
 /**
  * Gets credentials from the OS keyring.
  */
-export function getStoredCredentials(): StoredCredentials {
-  const credentialsJson = getEntry().getPassword()
-  if (!credentialsJson) {
+export function getCredentials(): StoredCredentials {
+  const currentCredentialsJson = getCurrentEntry().getPassword()
+  if (currentCredentialsJson) {
+    return parseCurrentCredentials(currentCredentialsJson)
+  }
+
+  const legacyCredentialsJson = getLegacyEntry().getPassword()
+  if (!legacyCredentialsJson) {
     throw new Error(`No credentials in keyring. Run \`${ADD_CREDENTIALS_CMD}\` first.`)
   }
 
+  return parseLegacyCredentials(legacyCredentialsJson)
+}
+
+function parseCurrentCredentials(credentialsJson: string): StoredCredentials {
   const parsedCredentials: unknown = JSON.parse(credentialsJson)
   const credentials = storedCredentialsSchema.safeParse(parsedCredentials)
   if (!credentials.success) {
-    const legacyCredentials = legacyCredentialsSchema.safeParse(parsedCredentials)
-    if (legacyCredentials.success) {
-      const migratedCredentials: StaticCredentials = { mode: 'static', ...legacyCredentials.data }
-      writeStoredCredentials(migratedCredentials)
-      return migratedCredentials
-    }
+    throw new Error(`Credentials have invalid format. Run \`${ADD_CREDENTIALS_CMD}\` to refresh them.`)
+  }
 
+  return credentials.data
+}
+
+function parseLegacyCredentials(credentialsJson: string): StoredCredentials {
+  const credentials = legacySchemaToV2.safeParse(JSON.parse(credentialsJson))
+  if (!credentials.success) {
     throw new Error(`Credentials have invalid format. Run \`${ADD_CREDENTIALS_CMD}\` to refresh them.`)
   }
 
@@ -68,30 +88,38 @@ export function getStoredCredentials(): StoredCredentials {
 /**
  * Writes credentials into the OS keyring.
  */
-export function writeStoredCredentials(credentials: StoredCredentials) {
+export function writeCredentials(credentials: StoredCredentials) {
   const validatedCredentials = storedCredentialsSchema.safeParse(credentials)
   if (!validatedCredentials.success) {
     throw new Error('Credentials have invalid format.')
   }
 
-  getEntry().setPassword(JSON.stringify(validatedCredentials.data))
-}
+  getCurrentEntry().setPassword(JSON.stringify(validatedCredentials.data))
 
-export function getCredentials(): StoredCredentials {
-  return getStoredCredentials()
-}
-
-export function writeCredentials(credentials: Omit<StaticCredentials, 'mode'> | StaticCredentials) {
-  writeStoredCredentials({ mode: 'static', ...credentials })
+  // Write static credentials to legacy storage as well for compatibility purposes
+  if (validatedCredentials.data.mode === 'static') {
+    writeLegacyCredentials(validatedCredentials.data)
+  }
 }
 
 /**
  * Deletes credentials from the OS keyring.
  */
 export function deleteCredentials(): boolean {
-  return getEntry().deletePassword()
+  const currentDeleted = getCurrentEntry().deletePassword()
+  const legacyDeleted = getLegacyEntry().deletePassword()
+  return currentDeleted || legacyDeleted
 }
 
-function getEntry(): Entry {
-  return new Entry(KEYRING_SERVICE_NAME, KEYRING_USER_NAME)
+function writeLegacyCredentials(credentials: LegacyCredentials) {
+  const legacyCredentials = legacyCredentialsSchema.parse(credentials)
+  getLegacyEntry().setPassword(JSON.stringify(legacyCredentials))
+}
+
+function getCurrentEntry(): Entry {
+  return new Entry(KEYRING_SERVICE_NAME, CURRENT_KEYRING_USER_NAME)
+}
+
+function getLegacyEntry(): Entry {
+  return new Entry(KEYRING_SERVICE_NAME, LEGACY_KEYRING_USER_NAME)
 }
