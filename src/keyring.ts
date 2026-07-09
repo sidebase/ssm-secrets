@@ -1,6 +1,12 @@
-import { Entry } from '@napi-rs/keyring'
+import { AsyncEntry, Entry } from '@napi-rs/keyring'
 import { z } from 'zod'
 import { calculateChecksum } from './utils.js'
+
+export enum StorageMode {
+  Static = 'static',
+  SSO = 'sso',
+  Chunked = 'chunked',
+}
 
 const CURRENT_SCHEMA_VERSION = 2
 
@@ -27,16 +33,16 @@ const legacyCredentialsSchema = z.object({
 })
 
 const legacySchemaToV2 = legacyCredentialsSchema.transform(credentials => ({
-  mode: 'static' as const,
+  mode: StorageMode.Static as const,
   ...credentials,
 }))
 
 const staticCredentialsSchema = legacyCredentialsSchema.extend({
-  mode: z.literal('static'),
+  mode: z.literal(StorageMode.Static),
 })
 
 const ssoCredentialsSchema = z.object({
-  mode: z.literal('sso'),
+  mode: z.literal(StorageMode.SSO),
   accessToken: z.string().optional(),
   accessTokenExpiresAt: z.number().optional(),
   accountId: z.string().nonempty(),
@@ -63,8 +69,9 @@ const ssoCredentialsSchema = z.object({
 * such as Windows.
 */
 const chunkedCredentialsSchema = z.object({
-  mode: z.literal('chunked'),
+  mode: z.literal(StorageMode.Chunked),
   chunkCount: z.int().positive(),
+  chunkId: z.string().min(1),
   checksum: z.string(),
 })
 
@@ -112,7 +119,7 @@ function parseCurrentCredentials(jsonString: string, allowChunked: boolean): Pro
     const futureCompatibility = futureCompatibilitySchema.safeParse(parentEntry)
     if (futureCompatibility.success) {
       throw new Error(
-        `Saved credentials are not supported by this version of ssm-secrets. Update the utility to support mode: ${futureCompatibility.data.mode}`
+        `Saved credentials are not supported by this version of ssm-secrets. Update the utility to support mode: ${futureCompatibility.data.mode}`,
       )
     }
 
@@ -121,9 +128,10 @@ function parseCurrentCredentials(jsonString: string, allowChunked: boolean): Pro
 
   const credentials = credentialsParseResult.data
 
-  if (credentials.mode === 'chunked' && allowChunked) {
+  if (credentials.mode === StorageMode.Chunked && allowChunked) {
     return readChunkedCredentials(credentials)
-  } else if (credentials.mode === 'chunked') {
+  }
+  else if (credentials.mode === StorageMode.Chunked) {
     throw new Error('Unexpected recursion while parsing chunked credentials')
   }
 
@@ -144,7 +152,7 @@ async function readChunkedCredentials(parentEntry: ChunkedCredentials): Promise<
   const chunks: string[] = []
 
   for (let chunkIndex = 0; chunkIndex < chunkCount; chunkIndex++) {
-    const contents = getChunkEntry(chunkIndex).getPassword()
+    const contents = getChunkEntry(parentEntry.chunkId, chunkIndex).getPassword()
     if (!contents) {
       throw new Error(`Chunked storage: could not find keyring chunk ${chunkIndex}`)
     }
@@ -172,28 +180,37 @@ export async function writeCredentials(credentials: StoredCredentials) {
     throw new Error('Credentials have invalid format.')
   }
 
+  // When currently saved credentials used chunked storage, prepare for cleanup
+  const currentEntry = getCurrentEntry()
+  const previousChunkedCredentials = getChunkedCredentials(currentEntry)
+
   const credentialsToWrite = JSON.stringify(validatedCredentials.data)
 
   // Some OS (e.g. Windows) have platform size limits,
   // chunk the writes in such cases
   const utf16SizeInBytes = getApproximateUtf16SizeInBytes(credentialsToWrite)
   if (process.platform === 'win32' && utf16SizeInBytes > CHUNK_SIZE_SAFE_LIMIT_BYTES) {
-    await saveToChunks(credentialsToWrite)
-  } else try {
-    getCurrentEntry().setPassword(credentialsToWrite)
-  } catch (e: unknown) {
+    await saveToChunks(credentialsToWrite, previousChunkedCredentials)
+  }
+  else try {
+    currentEntry.setPassword(credentialsToWrite)
+    await deleteChunkedCredentials(previousChunkedCredentials)
+  }
+  catch (e: unknown) {
     // Try saving as chunks when platform size limit was reached
     if (e instanceof Error && PLATFORM_LIMIT_ERROR_RE.test(e.message)) {
-      await saveToChunks(credentialsToWrite)
-    } else if (e instanceof Error) {
+      await saveToChunks(credentialsToWrite, previousChunkedCredentials)
+    }
+    else if (e instanceof Error) {
       throw e
-    } else {
+    }
+    else {
       throw new TypeError('Unknown error while writing credentials', { cause: e })
     }
   }
 
   // Write static credentials to legacy storage as well for compatibility purposes
-  if (validatedCredentials.data.mode === 'static') {
+  if (validatedCredentials.data.mode === StorageMode.Static) {
     writeLegacyCredentials(validatedCredentials.data)
   }
 }
@@ -201,10 +218,19 @@ export async function writeCredentials(credentials: StoredCredentials) {
 /**
  * Deletes credentials from the OS keyring.
  */
-export function deleteCredentials(): boolean {
-  const currentDeleted = getCurrentEntry().deletePassword()
-  const legacyDeleted = getLegacyEntry().deletePassword()
-  return currentDeleted || legacyDeleted
+export async function deleteCredentials(): Promise<boolean> {
+  const currentEntry = getCurrentEntry()
+
+  let chunksDeleted = false
+  try {
+    chunksDeleted ||= await deleteChunkedCredentials(getChunkedCredentials(currentEntry))
+  }
+  catch {}
+
+  const currentDeleted = currentEntry.deleteCredential()
+  const legacyDeleted = getLegacyEntry().deleteCredential()
+
+  return currentDeleted || legacyDeleted || chunksDeleted
 }
 
 function writeLegacyCredentials(credentials: LegacyCredentials) {
@@ -212,37 +238,99 @@ function writeLegacyCredentials(credentials: LegacyCredentials) {
   getLegacyEntry().setPassword(JSON.stringify(legacyCredentials))
 }
 
-async function saveToChunks(initial: string): Promise<void> {
+async function saveToChunks(initial: string, previousChunkedCredentials: ChunkedCredentials | null): Promise<void> {
   let chunkCount = 0
+
+  // Calculate checksum and derive chunkId
+  const checksum = await calculateChecksum(initial)
+  const chunkId = checksum.slice(0, 8)
 
   let remaining = initial
   while (remaining.length > 0) {
     // Since UTF-16 bytes is twice the length of ASCII characters
     const lengthToTake = CHUNK_SIZE_SAFE_LIMIT_BYTES / 2
     const chunk = remaining.slice(0, lengthToTake)
-    getChunkEntry(chunkCount).setPassword(chunk)
+    getChunkEntry(chunkId, chunkCount).setPassword(chunk)
 
     chunkCount++
     remaining = remaining.slice(lengthToTake)
   }
 
-  // Compute checksum and replace the parent credentials
-  const checksum = await calculateChecksum(initial)
+  // Replace the parent entry
   const chunkedCredentials: ChunkedCredentials = {
-    mode: 'chunked',
+    mode: StorageMode.Chunked,
     checksum,
     chunkCount,
+    chunkId,
   }
 
   const newParentEntry = JSON.stringify(chunkedCredentials)
   getCurrentEntry().setPassword(newParentEntry)
+
+  // Clean up previous chunks
+  await deleteChunkedCredentials(previousChunkedCredentials)
 }
 
-function getChunkEntry(index: number): Entry {
-  return new Entry(
-    KEYRING_SERVICE_NAME,
-    `${CURRENT_KEYRING_USER_NAME}/chunk/${index}`
+function getChunkedCredentials(entry: Entry): ChunkedCredentials | null {
+  try {
+    const currentEntryJson = entry.getPassword()
+    const currentEntryParsed = currentEntryJson && chunkedCredentialsSchema.safeParse(JSON.parse(currentEntryJson))
+    return currentEntryParsed && currentEntryParsed.success
+      ? currentEntryParsed.data
+      : null
+  }
+  catch {
+    return null
+  }
+}
+
+function deleteChunkedCredentials(chunkedCredentials: ChunkedCredentials | null): Promise<boolean> {
+  // Convenience
+  if (chunkedCredentials === null) {
+    return Promise.resolve(false)
+  }
+
+  return deleteChunksInRange(
+    chunkedCredentials.chunkId,
+    0,
+    chunkedCredentials.chunkCount,
   )
+}
+
+async function deleteChunksInRange(chunkId: string, startIndex: number, endIndex: number): Promise<boolean> {
+  // Short-circuit for cases when no chunks to delete (e.g. `startIndex = 0, endIndex = 0`)
+  if (chunkId === '' || startIndex >= endIndex) {
+    return false
+  }
+
+  let deleted = false
+
+  function onDelete(result: boolean) {
+    deleted ||= result
+  }
+
+  const promises: Promise<unknown>[] = []
+  for (let i = startIndex; i < endIndex; i++) {
+    promises.push(getAsyncChunkEntry(chunkId, i).deleteCredential().then(onDelete, onDeleteError))
+  }
+
+  await Promise.allSettled(promises)
+
+  return deleted
+}
+function onDeleteError() {
+  // The task implementing the deletion never throws (unless native code panics)
+  // See https://github.com/Brooooooklyn/keyring-node/blob/f330874629298929eda4c4729d1987c7449b51ca/src/async_entry.rs#L288
+}
+
+function getChunkEntry(chunkId: string, index: number): Entry {
+  return new Entry(KEYRING_SERVICE_NAME, getChunkEntryName(chunkId, index))
+}
+function getAsyncChunkEntry(chunkId: string, index: number): AsyncEntry {
+  return new AsyncEntry(KEYRING_SERVICE_NAME, getChunkEntryName(chunkId, index))
+}
+function getChunkEntryName(chunkId: string, index: number): string {
+  return `${CURRENT_KEYRING_USER_NAME}/chunk/${chunkId}/${index}`
 }
 
 function getCurrentEntry(): Entry {
@@ -253,7 +341,7 @@ function getLegacyEntry(): Entry {
   return new Entry(KEYRING_SERVICE_NAME, LEGACY_KEYRING_USER_NAME)
 }
 
-/** 
+/**
  * JS Strings are basically UTF-16, so to get the size in bytes we multiply the length by 2
  * as our entries are mostly ASCII (1 byte).
  * @see https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/String#utf-16_characters_unicode_code_points_and_grapheme_clusters

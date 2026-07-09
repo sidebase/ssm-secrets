@@ -9,8 +9,8 @@ export function wipeCredentialsCommand(program: Command) {
     .command('wipe-credentials')
     .summary(SUMMARY)
     .description(DESCRIPTION)
-    .action(() => {
-      const deleted = deleteCredentials()
+    .action(async () => {
+      const deleted = await deleteCredentials()
       console.log(deleted ? '✅ Credentials deleted' : 'No credentials found')
     })
 }

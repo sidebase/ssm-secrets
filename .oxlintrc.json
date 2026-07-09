@@ -7,6 +7,7 @@
     "perf": "warn"
   },
   "rules": {
+    "max-lines": "off",
     "max-lines-per-function": "off",
     "no-array-callback-reference": "off",
     "no-inline-comments": "off",

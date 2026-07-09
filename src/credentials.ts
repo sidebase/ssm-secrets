@@ -1,7 +1,7 @@
 import promptConfirm from '@inquirer/confirm'
 import promptSelect from '@inquirer/select'
 import type { SsoCredentials, StaticCredentials } from './keyring.js'
-import { getCredentials, writeCredentials } from './keyring.js'
+import { getCredentials, StorageMode, writeCredentials } from './keyring.js'
 import { openHttpsUrl } from './browser.js'
 import { createTokenFromDeviceCode, getErrorReason, getRoleCredentials, listAccounts, listRoles, refreshAccessToken, registerClient, startDeviceAuthorization } from './sso.js'
 
@@ -28,7 +28,7 @@ export async function getCredentialsRegion(): Promise<string> {
 export async function getAwsCredentials(): Promise<AwsCredentials> {
   const credentials = await getCredentials()
 
-  if (credentials.mode === 'static') {
+  if (credentials.mode === StorageMode.Static) {
     return {
       accessKeyId: credentials.accessKeyId,
       secretAccessKey: credentials.secretAccessKey,
@@ -40,7 +40,7 @@ export async function getAwsCredentials(): Promise<AwsCredentials> {
 
 /** Stores the static credentials provided by the user */
 export async function inputStaticCredentials(credentials: Omit<StaticCredentials, 'mode'>) {
-  await writeCredentials({ mode: 'static', ...credentials })
+  await writeCredentials({ mode: StorageMode.Static, ...credentials })
 }
 
 /**
@@ -67,7 +67,7 @@ export async function inputSsoCredentials(options: SsoAuthOptions) {
   const stsCredentials = await getRoleCredentials(options.region, token.accessToken, accountId, roleName)
 
   await writeCredentials({
-    mode: 'sso',
+    mode: StorageMode.SSO,
     accessToken: token.accessToken,
     accessTokenExpiresAt: token.accessTokenExpiresAt,
     accountId,
