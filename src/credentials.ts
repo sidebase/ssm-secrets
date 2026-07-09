@@ -21,26 +21,26 @@ interface SsoAuthOptions {
   startUrl: string
 }
 
-export function getCredentialsRegion(): string {
-  return getCredentials().region
+export async function getCredentialsRegion(): Promise<string> {
+  return (await getCredentials()).region
 }
 
-export function getAwsCredentials(): Promise<AwsCredentials> {
-  const credentials = getCredentials()
+export async function getAwsCredentials(): Promise<AwsCredentials> {
+  const credentials = await getCredentials()
 
   if (credentials.mode === 'static') {
-    return Promise.resolve({
+    return {
       accessKeyId: credentials.accessKeyId,
       secretAccessKey: credentials.secretAccessKey,
-    })
+    }
   }
 
   return resolveSsoCredentials(credentials)
 }
 
 /** Stores the static credentials provided by the user */
-export function inputStaticCredentials(credentials: Omit<StaticCredentials, 'mode'>) {
-  writeCredentials({ mode: 'static', ...credentials })
+export async function inputStaticCredentials(credentials: Omit<StaticCredentials, 'mode'>) {
+  await writeCredentials({ mode: 'static', ...credentials })
 }
 
 /**
@@ -66,7 +66,7 @@ export async function inputSsoCredentials(options: SsoAuthOptions) {
   const roleName = options.roleName ?? await selectRole(options.region, token.accessToken, accountId)
   const stsCredentials = await getRoleCredentials(options.region, token.accessToken, accountId, roleName)
 
-  writeCredentials({
+  await writeCredentials({
     mode: 'sso',
     accessToken: token.accessToken,
     accessTokenExpiresAt: token.accessTokenExpiresAt,
@@ -106,7 +106,7 @@ async function resolveSsoCredentials(credentials: SsoCredentials): Promise<AwsCr
     refreshedCredentials.roleName,
   )
   const updatedCredentials = { ...refreshedCredentials, stsCredentials }
-  writeCredentials(updatedCredentials)
+  await writeCredentials(updatedCredentials)
   return stsCredentials
 }
 
@@ -130,7 +130,7 @@ async function getSsoCredentialsWithFreshToken(credentials: SsoCredentials): Pro
         accessTokenExpiresAt: token.accessTokenExpiresAt,
         refreshToken: token.refreshToken,
       }
-      writeCredentials(updatedCredentials)
+      await writeCredentials(updatedCredentials)
       return updatedCredentials
     }
     catch (e) {
@@ -176,7 +176,7 @@ async function runInteractiveSsoRefresh(credentials: SsoCredentials): Promise<Ss
     clientSecretExpiresAt: client.clientSecretExpiresAt,
     refreshToken: token.refreshToken,
   }
-  writeCredentials(updatedCredentials)
+  await writeCredentials(updatedCredentials)
   return updatedCredentials
 }
 

@@ -31,6 +31,12 @@ export function normalizePathAndName(path: string, name: string): string {
   return `${normalizePath(path)}${name}`
 }
 
+export async function calculateChecksum(text: string): Promise<string> {
+  const encoded = new TextEncoder().encode(text)
+  const v = await crypto.subtle.digest('SHA-256', encoded)
+  return Buffer.from(v).toString('hex')
+}
+
 /**
  * Formats parameter as an environment variable
  */

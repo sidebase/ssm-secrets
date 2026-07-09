@@ -48,7 +48,7 @@ export function authCommand(program: Command) {
         }),
       }
 
-      inputStaticCredentials(answers)
+      await inputStaticCredentials(answers)
       console.log('✅ Static credentials securely stored in system keyring')
     })
 }
