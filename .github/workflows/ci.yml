@@ -28,12 +28,14 @@ jobs:
           node-version: ${{ env.NODE_VER }}
           cache: 'pnpm'
 
-      - name: Install deps and prepare types
-        run: pnpm i
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
 
-      # Check building
-      - run: pnpm build
+      - name: Build
+        run: pnpm build
 
-      # Check linting and typing
-      - run: pnpm lint && pnpm format:check
+      - name: Test
+        run: pnpm test:typecheck && pnpm test
 
+      - name: Lint and format
+        run: pnpm lint && pnpm format:check

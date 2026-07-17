@@ -1,10 +1,16 @@
 {
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
   // Enable all rules in the `correctness` and `suspicious` categories
   "categories": {
     "correctness": "error",
     "suspicious": "warn",
     "pedantic": "warn",
     "perf": "warn"
+  },
+  "options": {
+    "denyWarnings": true,
+    "reportUnusedDisableDirectives": "error",
+    "typeAware": true
   },
   "rules": {
     "max-lines": "off",

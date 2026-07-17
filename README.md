@@ -284,6 +284,8 @@ Current versions store credentials using keyring user with `/v2` suffix. For com
 
 SSO auth is stored only under the `/v2` suffix because older versions do not support SSO. If legacy static credentials exist, older versions can keep using them. `ssm-secrets wipe-credentials` deletes both `v2` and legacy credentials.
 
+Some platforms limit the size of individual keyring entries. When credentials exceed that limit, `ssm-secrets` automatically splits them into smaller keyring entries and stores a checksum-verified manifest under the `/v2` suffix. This is transparent to supported versions, while platforms without such limits continue using a single entry. Older versions cannot read chunked credentials, so all projects on the affected machine must use a version that supports chunked storage. `ssm-secrets wipe-credentials` also removes the chunks referenced by the current manifest.
+
 ## 🧠 Example workflow
 
 ```bash
