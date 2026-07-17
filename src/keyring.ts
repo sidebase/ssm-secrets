@@ -23,6 +23,13 @@ const ADD_CREDENTIALS_CMD = 'ssm-secrets auth'
 const CHUNK_SIZE_SAFE_LIMIT_BYTES = 2048
 
 /**
+ * Max number of chunks to store in the keyring,
+ * the number here is an arbitrary limit.
+ * The typical chunkCount for SSO mode is 4-7.
+ */
+const CHUNK_MAX_COUNT = 16
+
+/**
  * Platform size limit error.
  * @see https://github.com/open-source-cooperative/keyring-core/blob/eb41b5cd54694c1622d3c30c59f2e87368463151/src/error.rs#L91-L94
  */
@@ -70,7 +77,7 @@ const ssoCredentialsSchema = z.object({
 */
 const chunkedCredentialsSchema = z.object({
   mode: z.literal(StorageMode.Chunked),
-  chunkCount: z.int().positive(),
+  chunkCount: z.int().positive().max(CHUNK_MAX_COUNT),
   chunkId: z.string().min(1),
   checksum: z.string(),
 })
@@ -117,7 +124,7 @@ function parseCurrentCredentials(jsonString: string, allowChunked: boolean): Pro
   const credentialsParseResult = rawStoredCredentialsSchema.safeParse(parentEntry)
   if (!credentialsParseResult.success) {
     const futureCompatibility = futureCompatibilitySchema.safeParse(parentEntry)
-    if (futureCompatibility.success) {
+    if (futureCompatibility.success && !(Object.values(StorageMode) as string[]).includes(futureCompatibility.data.mode)) {
       throw new Error(
         `Saved credentials are not supported by this version of ssm-secrets. Update the utility to support mode: ${futureCompatibility.data.mode}`,
       )
@@ -239,6 +246,14 @@ function writeLegacyCredentials(credentials: LegacyCredentials) {
 }
 
 async function saveToChunks(initial: string, previousChunkedCredentials: ChunkedCredentials | null): Promise<void> {
+  // Since UTF-16 bytes is twice the length of ASCII characters
+  const chunkLength = CHUNK_SIZE_SAFE_LIMIT_BYTES / 2
+
+  // Check max number of chunks we could store
+  if (initial.length / chunkLength > CHUNK_MAX_COUNT) {
+    throw new Error(`Expected chunk count exceeds maximum of ${CHUNK_MAX_COUNT}`)
+  }
+
   let chunkCount = 0
 
   // Calculate checksum and derive chunkId
@@ -247,13 +262,11 @@ async function saveToChunks(initial: string, previousChunkedCredentials: Chunked
 
   let remaining = initial
   while (remaining.length > 0) {
-    // Since UTF-16 bytes is twice the length of ASCII characters
-    const lengthToTake = CHUNK_SIZE_SAFE_LIMIT_BYTES / 2
-    const chunk = remaining.slice(0, lengthToTake)
+    const chunk = remaining.slice(0, chunkLength)
     getChunkEntry(chunkId, chunkCount).setPassword(chunk)
 
     chunkCount++
-    remaining = remaining.slice(lengthToTake)
+    remaining = remaining.slice(chunkLength)
   }
 
   // Replace the parent entry
@@ -267,8 +280,14 @@ async function saveToChunks(initial: string, previousChunkedCredentials: Chunked
   const newParentEntry = JSON.stringify(chunkedCredentials)
   getCurrentEntry().setPassword(newParentEntry)
 
-  // Clean up previous chunks
-  await deleteChunkedCredentials(previousChunkedCredentials)
+  // Clean up previous chunks when `chunkId` differs.
+  // The only realistic scenario when `chunkId` is the same is
+  // a race of two `ssm-secrets` calls to GetRoleCredentials
+  // returning the exact same STS credentials and trying to write them
+  // at the same time which is very low probability.
+  if (previousChunkedCredentials?.chunkId !== chunkId) {
+    await deleteChunkedCredentials(previousChunkedCredentials)
+  }
 }
 
 function getChunkedCredentials(entry: Entry): ChunkedCredentials | null {
