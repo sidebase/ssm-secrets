@@ -24,9 +24,11 @@
   "scripts": {
     "build": "tsc",
     "format": "eslint --fix",
-    "format:check": "eslint",
-    "lint": "oxlint --type-aware",
-    "prepack": "pnpm build"
+    "format:check": "eslint --max-warnings 0",
+    "lint": "oxlint --tsconfig=tsconfig.test.json",
+    "prepack": "pnpm build",
+    "test": "vitest run",
+    "test:typecheck": "tsc -p tsconfig.test.json --noEmit"
   },
   "keywords": [
     "AWS",
@@ -55,9 +57,10 @@
     "@stylistic/eslint-plugin": "^5.10.0",
     "@types/node": "^24.13.2",
     "@typescript-eslint/parser": "^8.61.0",
-    "eslint": "^9.39.4",
-    "oxlint": "^1.69.0",
-    "oxlint-tsgolint": "^0.13.0",
-    "typescript": "^5.9.3"
+    "eslint": "^9.39.5",
+    "oxlint": "^1.74.0",
+    "oxlint-tsgolint": "^0.25.0",
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.10"
   }
 }

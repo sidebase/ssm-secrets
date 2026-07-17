@@ -3,8 +3,8 @@ import { DeleteParameterCommand, GetParameterCommand, PutParameterCommand, SSMCl
 import { getAwsCredentials, getCredentialsRegion } from './credentials.js'
 import { normalizePath, normalizePathAndName } from './utils.js'
 
-export function getClient(): SSMClient {
-  const region = getCredentialsRegion()
+export async function getClient(): Promise<SSMClient> {
+  const region = await getCredentialsRegion()
 
   return new SSMClient({
     credentials: getAwsCredentials,
@@ -13,7 +13,7 @@ export function getClient(): SSMClient {
 }
 
 export async function listParameters(path: string): Promise<Parameter[]> {
-  const client = getClient()
+  const client = await getClient()
   const paginator = paginateGetParametersByPath({ client }, {
     Path: normalizePath(path),
     Recursive: true,
@@ -33,7 +33,7 @@ export async function listParameters(path: string): Promise<Parameter[]> {
  * Reads a parameter from SSM by a given path and name.
  */
 export async function getParameter(path: string, name: string): Promise<Parameter | undefined> {
-  const client = getClient()
+  const client = await getClient()
   const cmd = new GetParameterCommand({
     Name: normalizePathAndName(path, name),
     WithDecryption: true,
@@ -47,7 +47,7 @@ export async function getParameter(path: string, name: string): Promise<Paramete
  * @returns A number indicating the version of the parameter returned by SSM.
  */
 export async function putParameter(path: string, name: string, value: string): Promise<number | undefined> {
-  const client = getClient()
+  const client = await getClient()
   const cmd = new PutParameterCommand({
     Name: normalizePathAndName(path, name), Overwrite: true, Type: 'SecureString', Value: value,
   })
@@ -59,7 +59,7 @@ export async function putParameter(path: string, name: string, value: string): P
  * Deletes the parameter from SSM by given path and name.
  */
 export async function deleteParameter(path: string, name: string) {
-  const client = getClient()
+  const client = await getClient()
   const cmd = new DeleteParameterCommand({
     Name: normalizePathAndName(path, name),
   })
